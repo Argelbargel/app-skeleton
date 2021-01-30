@@ -1,0 +1,131 @@
+import org.apache.tools.ant.taskdefs.condition.Os
+
+plugins {
+    id("base")
+    id("com.github.node-gradle.node").version("2.2.4")
+}
+
+group("com.github.argelbargel")
+
+node {
+    version = "14.15.4"
+    download = true
+    nodeModulesDir = projectDir
+    npmWorkDir = file(".gradle/.npm")
+}
+
+def npmInstallTask = tasks.named("npmInstall") {
+    dependsOn(tasks.named("npmSetup"))
+}
+
+def createAppTask = tasks.register("createCordovaApp", NpxTask) {
+    group("build setup")
+
+    dependsOn(npmInstallTask)
+
+    onlyIf { !file("./app").exists() }
+    command = "cordova"
+    args = createCordovaArgs([ "create", "app", project.group, project.name ])
+}
+
+def addAndroidPlatformTask = tasks.register("addAndroidPlatform", NpxTask) {
+    group("build setup")
+
+    onlyIf { !file("./app/platforms/android").exists() }
+    mustRunAfter createAppTask
+
+    command = "cordova"
+    args = createCordovaArgs([ "platform", "add", "android" ])
+    workingDir = file("./app")
+}
+
+def addPlatformsTask = tasks.register("addPlatforms") {
+    def androidSdkRoot = System.env.ANDROID_SKD_ROOT
+    def addAndroidPlatform = androidSdkRoot != null && file(androidSdkRoot).exists()
+    if (addAndroidPlatform) {
+        dependsOn(addAndroidPlatformTask)
+    }
+
+    doFirst {
+        if (!addAndroidPlatform) {
+            logger.warn("skipped android-platform as ANDROID_SDK_ROOT does not exist")
+        }
+    }
+}
+
+tasks.register("initCordova") {
+    group("build setup")
+    dependsOn([createAppTask, addPlatformsTask])
+}
+
+tasks.register("checkCordovaRequirements", NpxTask) {
+    group("build setup")
+
+    command = "cordova"
+    args = createCordovaArgs("requirements")
+    workingDir = file("./app")
+    environment = getCordovaEnvironment()
+}
+
+def cordovaBuildTask = tasks.register("cordovaBuild", NpxTask) {
+    group("build")
+
+    it.inputs.dir("./app/platforms/android/cordova")
+    it.inputs.dir("./app/platforms/android/CordovaLib")
+    it.inputs.dir("./app/platforms/android/platform_www")
+    it.inputs.file("./app/platforms/android/android.json")
+    it.inputs.file("./app/platforms/android/build.gradle")
+    it.inputs.file("./app/platforms/android/gradle.properties")
+    it.inputs.file("./app/platforms/android/project.properties")
+    it.inputs.file("./app/platforms/android/settings.gradle")
+
+    it.inputs.dir("./app/plugins")
+    it.inputs.dir("./app/www")
+    it.inputs.file("./app/config.xml")
+    it.inputs.file("./app/package.json")
+    it.inputs.file("./app/package-lock.json")
+
+    it.outputs.dir("./app/platforms/android/app/build")
+
+    command = "cordova"
+    args = createCordovaArgs("build")
+    workingDir = file("./app")
+    environment = getCordovaEnvironment()
+}
+
+tasks.register("emulate", NpxTask).configure {
+    group("run")
+    command = "cordova"
+    args = createCordovaArgs(["emulate"])
+    workingDir = file("./app")
+    environment = getCordovaEnvironment()
+}
+
+tasks.register("serve", NpxTask).configure {
+    group("run")
+
+    command = "cordova"
+    args = createCordovaArgs("serve")
+    workingDir = file("./app")
+    environment = getCordovaEnvironment()
+}
+
+tasks.named("assemble").configure {
+    dependsOn(cordovaBuildTask)
+}
+
+def getCordovaEnvironment() {
+    def environment = [ JAVA_HOME: System.env.JAVA_HOME, ANDROID_SDK_ROOT: System.env.ANDROID_SDK_ROOT ]
+    if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+        return environment + [ Path: "${System.env.Path};${gradle.gradleHomeDir}\\bin;${System.env.ANDROID_SDK_ROOT}\\platform-tools;${System.env.ANDROID_SDK_ROOT}\\tools"]
+    } else {
+        return environment + [ PATH: "${System.env.PATH};${gradle.gradleHomeDir}/bin;${System.env.ANDROID_SDK_ROOT}/platform-tools;${System.env.ANDROID_SDK_ROOT}/tools"]
+    }
+}
+
+def static createCordovaArgs(args) {
+    if (!(args instanceof Collection)) {
+         args = [ args ]
+    }
+    return args + [ "--no-telemetry" ]
+}
