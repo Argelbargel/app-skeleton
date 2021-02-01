@@ -1,0 +1,82 @@
+configurations {
+    androidSdk {
+        visible = false
+    }
+}
+
+repositories {
+    ivy {
+        url = "https://dl.google.com/android/repository/"
+        content {
+            includeGroup "android"
+        }
+        patternLayout {
+            artifact "[module]-[revision].[ext]"
+        }
+        metadataSources {
+            artifact()
+        }
+    }
+}
+
+dependencies {
+    androidSdk(group: "android", name: "commandlinetools-${osName}", version: androidSdkCommandlineToolsVersion, ext: "zip")
+}
+
+def androidSdkRootDir = "${gradle.gradleUserHomeDir}/android-sdk"
+
+def installAndroidSdkCommandlineToolsTask = tasks.register("installAndroidSdkCommandlineTools") {
+    group("android-sdk")
+
+    dependsOn(configurations.androidSdk)
+
+    onlyIf { !file("${androidSdkRootDir}/cmdline-tools").exists() }
+
+    doFirst {
+        copy {
+            into(androidSdkRootDir)
+            configurations.androidSdk.each {
+                from(zipTree(it))
+            }
+        }
+    }
+}
+
+def installAndroidSdkPackagesTask = tasks.register("installAndroidSdkPackages", Exec) {
+    group("android-sdk")
+
+    dependsOn(installAndroidSdkCommandlineToolsTask)
+
+    def packagesFile = file("${androidSdkRootDir}/.packages")
+    onlyIf { !packagesFile.exists() || packagesFile.text != androidSdkPackages as String}
+
+    workingDir(androidSdkRootDir)
+    commandLine("${workingDir}/cmdline-tools/bin/sdkmanager")
+    args([ "--sdk_root=${workingDir}" ] + androidSdkPackages)
+    standardInput = new ByteArrayInputStream("y".bytes)
+    standardOutput = new ByteArrayOutputStream()
+
+    doLast {
+        packagesFile.text = androidSdkPackages as String
+    }
+}
+
+tasks.register("createAndroidSdkDevice", Exec) { 
+    group("android-sdk")
+
+    dependsOn(installAndroidSdkPackagesTask)
+
+    def deviceDir = "${androidSdkRootDir}/.avd/${project.name}-${androidSdkAvdDevice}-${androidSdkSystemImage}"
+    onlyIf { !file(deviceDir).exists() }
+
+
+    workingDir(androidSdkRootDir)
+    commandLine("${workingDir}/cmdline-tools/bin/avdmanager")
+    args([ 
+        "create", "avd", "-c", "",
+        "-n", project.name, 
+        "-d", androidSdkAvdDevice, 
+        "-k", androidSdkSystemImage, 
+        "-p", deviceDir
+    ])
+}
