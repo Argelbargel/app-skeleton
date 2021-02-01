@@ -8,15 +8,18 @@ node {
 }
 
 
-def nodeJsInstallDir = "${node.workDir}/node-v${nodeVersion}-${osName != "linux" ? osName : "linux-x64"}"
-def cordovaInstallDir = "${nodeJsInstallDir}/lib/node_modules/cordova"
+def cordovaVersionFile = file("${node.workDir}/.cordovaVersion")
 
 def installCordovaTask = tasks.register("installCordova", NpmTask) {
     group("build setup")
     dependsOn(tasks.named("npmSetup"))
 
-    onlyIf { !file(cordovaInstallDir).exists() }
+    onlyIf { !cordovaVersionFile.exists() || cordovaVersionFile.text != cordovaVersion }
     args = [ 'install', "cordova@${cordovaVersion}", '-g' ]
+
+    doLast {
+        cordovaVersionFile.text = cordovaVersion
+    }
 }
 
 def createCordovaAppTask = tasks.register("createCordovaApp", NpxTask) {
@@ -24,92 +27,85 @@ def createCordovaAppTask = tasks.register("createCordovaApp", NpxTask) {
 
     dependsOn(installCordovaTask)
 
-    onlyIf { !file("./app").exists() }
+    onlyIf { !file(cordovaAppDir).exists() }
     command = "cordova"
-    args = createCordovaNpxArgs([ "create", "app", project.group, project.name ])
+    args = createCordovaNpxArgs([ "create", file(cordovaAppDir).name, project.group, project.name ])
 }
 
 def addCordovaAndroidPlatformTask = tasks.register("addCordovaAndroidPlatform", NpxTask) {
-    group("cordova")
+    group("build setup")
 
-    onlyIf { !file("./app/platforms/android").exists() }
+    dependsOn(tasks.named("createAndroidSdkDevice"))
+
+    onlyIf { !file("${cordovaAppDir}/platforms/android").exists() }
     mustRunAfter createCordovaAppTask
 
     command = "cordova"
     args = createCordovaNpxArgs([ "platform", "add", "android" ])
-    workingDir = file("./app")
+    workingDir = file(cordovaAppDir)
 }
 
 def addCordovaPlatformsTask = tasks.register("addCordovaPlatforms") {
-    group("cordova")
-
-    def androidSdkRoot = System.env.ANDROID_SKD_ROOT
-    def addAndroidPlatform = androidSdkRoot != null && file(androidSdkRoot).exists()
-    if (addAndroidPlatform) {
-        dependsOn(addAndroidPlatformTask)
-    }
-
-    doFirst {
-        if (!addAndroidPlatform) {
-            logger.warn("skipped android-platform as ANDROID_SDK_ROOT does not exist")
-        }
-    }
-}
-
-tasks.register("initCordova") {
     group("build setup")
-    dependsOn([createCordovaAppTask, addCordovaPlatformsTask])
+
+    dependsOn(addCordovaAndroidPlatformTask)
 }
 
-tasks.register("checkCordovaRequirements", NpxTask) {
+def checkCordovaRequirementsTask = tasks.register("checkCordovaRequirements", NpxTask) {
     group("cordova")
 
     command = "cordova"
     args = createCordovaNpxArgs("requirements")
-    workingDir = file("./app")
+    workingDir = file(cordovaAppDir)
     environment = getCordovaEnvironment()
 }
 
+tasks.register("initCordova") {
+    group("cordova")
+    dependsOn([createCordovaAppTask, addCordovaPlatformsTask, checkCordovaRequirementsTask])
+}
+
+
 def cordovaBuildTask = tasks.register("cordovaBuild", NpxTask) {
-    group("build")
+    group("cordova")
 
-    it.inputs.dir("./app/platforms/android/cordova")
-    it.inputs.dir("./app/platforms/android/CordovaLib")
-    it.inputs.dir("./app/platforms/android/platform_www")
-    it.inputs.file("./app/platforms/android/android.json")
-    it.inputs.file("./app/platforms/android/build.gradle")
-    it.inputs.file("./app/platforms/android/gradle.properties")
-    it.inputs.file("./app/platforms/android/project.properties")
-    it.inputs.file("./app/platforms/android/settings.gradle")
+    it.inputs.dir("${cordovaAppDir}/platforms/android/cordova")
+    it.inputs.dir("${cordovaAppDir}/platforms/android/CordovaLib")
+    it.inputs.dir("${cordovaAppDir}/platforms/android/platform_www")
+    it.inputs.file("${cordovaAppDir}/platforms/android/android.json")
+    it.inputs.file("${cordovaAppDir}/platforms/android/build.gradle")
+    it.inputs.file("${cordovaAppDir}/platforms/android/gradle.properties")
+    it.inputs.file("${cordovaAppDir}/platforms/android/project.properties")
+    it.inputs.file("${cordovaAppDir}/platforms/android/settings.gradle")
 
-    it.inputs.dir("./app/plugins")
-    it.inputs.dir("./app/www")
-    it.inputs.file("./app/config.xml")
-    it.inputs.file("./app/package.json")
-    it.inputs.file("./app/package-lock.json")
+    it.inputs.dir("${cordovaAppDir}/plugins")
+    it.inputs.dir("${cordovaAppDir}/www")
+    it.inputs.file("${cordovaAppDir}/config.xml")
+    it.inputs.file("${cordovaAppDir}/package.json")
+    it.inputs.file("${cordovaAppDir}/package-lock.json")
 
-    it.outputs.dir("./app/platforms/android/app/build")
+    it.outputs.dir("${cordovaAppDir}/platforms/android/app/build")
 
     command = "cordova"
     args = createCordovaNpxArgs("build")
-    workingDir = file("./app")
+    workingDir = file(cordovaAppDir)
     environment = getCordovaEnvironment()
 }
 
-tasks.register("emulate", NpxTask).configure {
-    group("run")
+tasks.register("cordovaEmulate", NpxTask).configure {
+    group("cordova")
     command = "cordova"
     args = createCordovaNpxArgs(["emulate"])
-    workingDir = file("./app")
+    workingDir = file(cordovaAppDir)
     environment = getCordovaEnvironment()
 }
 
-tasks.register("serve", NpxTask).configure {
-    group("run")
+tasks.register("cordovaServe", NpxTask).configure {
+    group("cordova")
 
     command = "cordova"
     args = createCordovaNpxArgs("serve")
-    workingDir = file("./app")
+    workingDir = file(cordovaAppDir)
     environment = getCordovaEnvironment()
 }
 
@@ -118,11 +114,11 @@ tasks.named("assemble").configure {
 }
 
 def getCordovaEnvironment() {
-    def environment = [ JAVA_HOME: System.env.JAVA_HOME, ANDROID_SDK_ROOT: System.env.ANDROID_SDK_ROOT ]
+    def environment = [ ANDROID_SDK_ROOT: androidSdkRootDir, ANDROID_HOME: androidSdkHomeDir ]
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-        return environment + [ Path: "${System.env.Path};${gradle.gradleHomeDir}\\bin;${System.env.ANDROID_SDK_ROOT}\\platform-tools;${System.env.ANDROID_SDK_ROOT}\\tools"]
+        return environment + [ Path: "${System.env.Path};${gradle.gradleHomeDir}\\bin;${androidSdkRootDir}\\platform-tools;${androidSdkRootDir}\\tools"]
     } else {
-        return environment + [ PATH: "${System.env.PATH};${gradle.gradleHomeDir}/bin;${System.env.ANDROID_SDK_ROOT}/platform-tools;${System.env.ANDROID_SDK_ROOT}/tools"]
+        return environment + [ PATH: "${System.env.PATH}:${gradle.gradleHomeDir}/bin:${androidSdkRootDir}/platform-tools:${androidSdkRootDir}/tools"]
     }
 }
 

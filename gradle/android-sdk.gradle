@@ -24,19 +24,26 @@ dependencies {
 }
 
 def androidSdkRootDir = "${gradle.gradleUserHomeDir}/android-sdk"
+def androidSdkCommandlineToolsDir = "${androidSdkRootDir}/cmdline-tools/latest/"
+def androidSdkCommandlineToolsBinDir = "${androidSdkCommandlineToolsDir}/bin"
 
 def installAndroidSdkCommandlineToolsTask = tasks.register("installAndroidSdkCommandlineTools") {
     group("android-sdk")
 
     dependsOn(configurations.androidSdk)
 
-    onlyIf { !file("${androidSdkRootDir}/cmdline-tools").exists() }
+    onlyIf { !file(androidSdkCommandlineToolsDir).exists() }
 
     doFirst {
         copy {
-            into(androidSdkRootDir)
+            into(androidSdkCommandlineToolsDir)
             configurations.androidSdk.each {
-                from(zipTree(it))
+                from(zipTree(it)) {
+                    eachFile {
+                        path = path.replaceFirst(/[^\/]+\/(.+)/, '$1')
+                        return it
+                    }
+                }
             }
         }
     }
@@ -50,11 +57,11 @@ def installAndroidSdkPackagesTask = tasks.register("installAndroidSdkPackages", 
     def packagesFile = file("${androidSdkRootDir}/.packages")
     onlyIf { !packagesFile.exists() || packagesFile.text != androidSdkPackages as String}
 
-    workingDir(androidSdkRootDir)
-    commandLine("${workingDir}/cmdline-tools/bin/sdkmanager")
-    args([ "--sdk_root=${workingDir}" ] + androidSdkPackages)
+    workingDir(androidSdkCommandlineToolsBinDir)
+    commandLine("./sdkmanager")
     standardInput = new ByteArrayInputStream("y".bytes)
     standardOutput = new ByteArrayOutputStream()
+    environment([ ANDROID_SDK_ROOT: androidSdkRootDir, ANDROID_HOME: androidSdkHomeDir ])
 
     doLast {
         packagesFile.text = androidSdkPackages as String
@@ -66,17 +73,22 @@ tasks.register("createAndroidSdkDevice", Exec) {
 
     dependsOn(installAndroidSdkPackagesTask)
 
-    def deviceDir = "${androidSdkRootDir}/.avd/${project.name}-${androidSdkAvdDevice}-${androidSdkSystemImage}"
-    onlyIf { !file(deviceDir).exists() }
+    def deviceFile = file("${androidSdkRootDir}/.${project.name}.avd")
+    def deviceInfo = "${androidSdkAvdDevice}-${androidSdkSystemImage}"
+    onlyIf { !deviceFile.exists() || deviceFile.text != deviceInfo }
 
 
-    workingDir(androidSdkRootDir)
-    commandLine("${workingDir}/cmdline-tools/bin/avdmanager")
+    workingDir(androidSdkCommandlineToolsBinDir)
+    environment([ ANDROID_SDK_ROOT: androidSdkRootDir, ANDROID_HOME: androidSdkHomeDir ])
+    commandLine("./avdmanager")
     args([ 
-        "create", "avd", "-c", "",
+        "create", "avd",
         "-n", project.name, 
         "-d", androidSdkAvdDevice, 
-        "-k", androidSdkSystemImage, 
-        "-p", deviceDir
+        "-k", androidSdkSystemImage
     ])
+
+    doLast {
+        deviceFile.text = deviceInfo
+    }
 }

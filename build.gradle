@@ -5,8 +5,6 @@ plugins {
 
 group("com.github.argelbargel")
 
-
-
 ext {
     def os = org.gradle.nativeplatform.platform.internal.DefaultNativePlatform.currentOperatingSystem
     osName = "unknown"
@@ -19,7 +17,14 @@ ext {
     nodeVersion = "14.15.4"
     cordovaVersion = "10.0.0"
     
-    androidSdkRootDir = "${gradle.gradleUserHomeDir}/android-sdk"
+    if (System.env.JAVA_HOME == null || !file(System.env.JAVA_HOME).exists()) {
+        logger.warn("JAVA_HOME is not set or not present at '${System.env.JAVA_HOME}'!")
+    }
+
+    userHomeDir= System.properties['user.home']
+    androidProjectSdkRootDir = "${gradle.gradleUserHomeDir}/android-sdk"
+    androidSdkHomeDir = file(androidProjectSdkRootDir).exists() ? androidProjectSdkRootDir : System.env.ANDROID_HOME
+    androidSdkRootDir = file(androidProjectSdkRootDir).exists() ? androidProjectSdkRootDir : System.env.ANDROID_SDK_HOME
     androidSdkCommandlineToolsVersion = "6858069_latest"
     androidSdkSystemImage = "system-images;android-29;google_apis;x86_64"
     androidSdkPackages = [ 
@@ -33,7 +38,10 @@ ext {
 
     nodePluginWorkDir = file("${gradle.gradleUserHomeDir}/nodejs")
     nodeJsInstallDir = "${nodePluginWorkDir}/node-v${nodeVersion}-${osName}"
+
+    cordovaAppDir = "${projectDir}/cordova-app/"
 }
 
-apply from: "gradle/cordova.gradle" 
 apply from: "gradle/android-sdk.gradle"
+apply from: "gradle/cordova.gradle" 
+
