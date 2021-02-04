@@ -12,7 +12,7 @@ ext {
     if (os.linux) {
         osName = "linux"
     } else if (os.windows) {
-        osName = "windows"
+        osName = "win"
     }
 
     if (System.env.JAVA_HOME == null || !file(System.env.JAVA_HOME).exists()) {
@@ -26,9 +26,8 @@ ext {
     androidSdkSystemImage = "system-images;android-${androidVersion};google_apis;x86_64"
     androidSdkPackages = [ 
         "build-tools;${androidBuildToolsVersion}", 
-        "platform-tools", 
-        "platforms;android-${androidVersion}", 
-        "sources;${androidVersion}",
+        "platforms;android-${androidVersion}",
+        "sources;android-${androidVersion}",
         androidSdkSystemImage
     ]
 

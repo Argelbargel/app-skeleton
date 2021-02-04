@@ -49,6 +49,7 @@ def installAndroidSdkCommandlineToolsTask = tasks.register("installAndroidSdkCom
     }
 }
 
+
 def installAndroidSdkPackagesTask = tasks.register("installAndroidSdkPackages", Exec) {
     group("android-sdk")
 
@@ -58,20 +59,20 @@ def installAndroidSdkPackagesTask = tasks.register("installAndroidSdkPackages", 
     onlyIf { !packagesFile.exists() || packagesFile.text != androidSdkPackages as String}
 
     workingDir(androidSdkCommandlineToolsBinDir)
-    commandLine("./sdkmanager")
+    commandLine(createAndroidSdkCommandLine("sdkmanager"))
+    args(androidSdkPackages)
+    environment(createAndroidSdkEnvironment())
     standardInput = new ByteArrayInputStream("y".bytes)
     standardOutput = new ByteArrayOutputStream()
-    environment([ ANDROID_SDK_ROOT: androidSdkRootDir, ANDROID_HOME: androidSdkHomeDir ])
-
     doLast {
         packagesFile.text = androidSdkPackages as String
     }
 }
 
-tasks.register("createAndroidSdkDevice", Exec) { 
+tasks.register("createAndroidSdkDevice", Exec) {
     group("android-sdk")
 
-    dependsOn(installAndroidSdkPackagesTask)
+    dependsOn([installAndroidSdkPackagesTask])
 
     def deviceFile = file("${androidSdkRootDir}/.${project.name}.avd")
     def deviceInfo = "${androidSdkAvdDevice}-${androidSdkSystemImage}"
@@ -80,16 +81,39 @@ tasks.register("createAndroidSdkDevice", Exec) {
 
     workingDir(androidSdkCommandlineToolsBinDir)
     environment([ ANDROID_SDK_ROOT: androidSdkRootDir, ANDROID_HOME: androidSdkHomeDir ])
-    commandLine("./avdmanager")
-    args([ 
-        "create", "avd",
-        "-n", project.name, 
-        "-d", androidSdkAvdDevice, 
-        "-k", androidSdkSystemImage,
-        "--force"
+    commandLine(createAndroidSdkCommandLine("avdmanager"))
+    args([
+            "create", "avd",
+            "-n", project.name,
+            "-d", androidSdkAvdDevice,
+            "-k", androidSdkSystemImage,
+            "--force"
     ])
 
     doLast {
         deviceFile.text = deviceInfo
     }
 }
+
+@SuppressWarnings('GrMethodMayBeStatic') // osName ist nicht static
+def createAndroidSdkCommandLine(command) {
+    if (osName == "win") {
+        if (!(command =~ /.+\..+/)) {
+            command = "${command}.bat"
+        }
+        return  [ 'cmd', "/c", "${command}" ]
+    }
+    
+    return "./${command}" 
+}
+
+@SuppressWarnings('GrMethodMayBeStatic') // osName ist nicht static
+def createAndroidSdkEnvironment() {
+    def environment = [ ANDROID_SDK_ROOT: androidSdkRootDir, ANDROID_HOME: androidSdkHomeDir ]
+    if (osName == "win") {
+        return environment + [ Path: "${gradle.gradleHomeDir}\\bin;${androidSdkRootDir}\\platform-tools;${androidSdkRootDir}\\emulator;${System.env.Path}"]
+    } else {
+        return environment + [ PATH: "${gradle.gradleHomeDir}/bin:${androidSdkRootDir}/platform-tools:${androidSdkRootDir}/emulator:${System.env.PATH}"]
+    }
+}
+

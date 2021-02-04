@@ -25,7 +25,7 @@ def createCordovaAppTask = tasks.register("createCordovaApp", NpxTask) {
 def addCordovaAndroidPlatformTask = tasks.register("addCordovaAndroidPlatform", NpxTask) {
     group("build setup")
 
-    dependsOn(tasks.named("createAndroidSdkDevice"))
+    dependsOn(tasks.named("installAndroidSdkPackagesTask"))
 
     onlyIf { !file("${cordovaAppDir}/platforms/android").exists() }
     mustRunAfter createCordovaAppTask
@@ -85,6 +85,8 @@ tasks.register("cordovaBuild", NpxTask) {
 tasks.register("cordovaEmulate", NpxTask).configure {
     group("cordova")
 
+    dependsOn(tasks.named("createAndroidSdkDevice"))
+
     command = "cordova"
     args = createCordovaNpxArgs(["emulate"])
     workingDir = file(cordovaAppDir)
@@ -102,7 +104,7 @@ tasks.register("cordovaServe", NpxTask).configure {
 
 def getCordovaEnvironment() {
     def environment = [ ANDROID_SDK_ROOT: androidSdkRootDir, ANDROID_HOME: androidSdkHomeDir ]
-    if (osName == "windows") {
+    if (osName == "win") {
         return environment + [ Path: "${System.env.Path};${gradle.gradleHomeDir}\\bin;${androidSdkRootDir}\\platform-tools;${androidSdkRootDir}\\tools"]
     } else {
         return environment + [ PATH: "${System.env.PATH}:${gradle.gradleHomeDir}/bin:${androidSdkRootDir}/platform-tools:${androidSdkRootDir}/tools"]
