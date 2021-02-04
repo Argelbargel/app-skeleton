@@ -5,6 +5,7 @@ plugins {
 
 group("com.github.argelbargel")
 
+
 ext {
     def os = org.gradle.nativeplatform.platform.internal.DefaultNativePlatform.currentOperatingSystem
     osName = "unknown"
@@ -14,9 +15,6 @@ ext {
         osName = "windows"
     }
 
-    nodeVersion = "14.15.4"
-    cordovaVersion = "10.0.0"
-    
     if (System.env.JAVA_HOME == null || !file(System.env.JAVA_HOME).exists()) {
         logger.warn("JAVA_HOME is not set or not present at '${System.env.JAVA_HOME}'!")
     }
@@ -25,23 +23,38 @@ ext {
     androidProjectSdkRootDir = "${gradle.gradleUserHomeDir}/android-sdk"
     androidSdkHomeDir = file(androidProjectSdkRootDir).exists() ? androidProjectSdkRootDir : System.env.ANDROID_HOME
     androidSdkRootDir = file(androidProjectSdkRootDir).exists() ? androidProjectSdkRootDir : System.env.ANDROID_SDK_HOME
-    androidSdkCommandlineToolsVersion = "6858069_latest"
-    androidSdkSystemImage = "system-images;android-29;google_apis;x86_64"
+    androidSdkSystemImage = "system-images;android-${androidVersion};google_apis;x86_64"
     androidSdkPackages = [ 
-        "build-tools;29.0.2", 
+        "build-tools;${androidBuildToolsVersion}", 
         "platform-tools", 
-        "platforms;android-29", 
-        "sources;android-29",
+        "platforms;android-${androidVersion}", 
+        "sources;${androidVersion}",
         androidSdkSystemImage
     ]
-    androidSdkAvdDevice = "pixel_3"
 
     nodePluginWorkDir = file("${gradle.gradleUserHomeDir}/nodejs")
-    nodeJsInstallDir = "${nodePluginWorkDir}/node-v${nodeVersion}-${osName}"
+    nodeJsInstallDir = "${nodePluginWorkDir}/node-v${nodeVersion}-${osName != 'linux' ? osName : 'linux-x64' }"
+    nodeJsBinDir = "${nodeJsInstallDir}/bin"
 
     cordovaAppDir = "${projectDir}/cordova-app/"
+    ionicAppDir = "${projectDir}/ionic-app/"
 }
+
+node {
+    version = nodeVersion
+    download = true
+    workDir = nodePluginWorkDir
+    npmWorkDir = file("${workDir}/.npm")
+}
+
 
 apply from: "gradle/android-sdk.gradle"
 apply from: "gradle/cordova.gradle" 
+apply from: "gradle/ionic.gradle" 
 
+
+tasks.named("assemble").configure {
+    if (file(cordovaAppDir).exists()) {
+        dependsOn(tasks.named("cordovaBuild"))
+    }
+}

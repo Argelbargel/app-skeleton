@@ -85,7 +85,8 @@ tasks.register("createAndroidSdkDevice", Exec) {
         "create", "avd",
         "-n", project.name, 
         "-d", androidSdkAvdDevice, 
-        "-k", androidSdkSystemImage
+        "-k", androidSdkSystemImage,
+        "--force"
     ])
 
     doLast {

@@ -1,0 +1,120 @@
+def ionicVersionFile = file("${node.workDir}/.ionicVersion")
+
+def installIonicTask = tasks.register("installIonic", NpmTask) {
+    group("build setup")
+    dependsOn(tasks.named("npmSetup"))
+
+    onlyIf { !ionicVersionFile.exists() || ionicVersionFile.text != ionicCliVersion }
+    args = [ 'install', "@ionic/cli", '-g' ]
+
+    doLast {
+        ionicVersionFile.text = ionicCliVersion
+    }
+}
+
+def startIonicAppTask = tasks.register("startIonicApp", NpxTask) {
+    group("build setup")
+
+    dependsOn(installIonicTask)
+
+    def template = gradle.startParameter.projectProperties.getOrDefault("template", ionicAppTemplate)
+    def type = gradle.startParameter.projectProperties.getOrDefault("type", ionicAppType)
+    def integration = "capacitor"
+    def ionicSettingsFile = file("${ionicAppDir}/.settings")
+    def ionicSettingsText = "${template}-${type}-${integration}"
+
+    onlyIf { !ionicSettingsFile.exists() || ionicSettingsFile.text != ionicSettingsText }
+
+    command = "ionic"
+    args = [ 
+        "start", project.name, template, "--${integration}", "--type=${type}", 
+        "--project-id=${file(ionicAppDir).name}", "--package-id=project.group", 
+        "--no-git", "--confirm" 
+    ]
+
+    doLast {
+        ionicSettingsFile.text = ionicSettingsText
+    }
+}
+
+def ionicBuildWWWTask = tasks.register("ionicBuildwww", NpxTask) {
+    group("ionic")
+
+    it.inputs.file("${ionicAppDir}/capacitor.config.json")
+    it.inputs.file("${ionicAppDir}/ionic.config.json")
+    it.inputs.file("${ionicAppDir}/package.json")
+    it.inputs.file("${ionicAppDir}/package-lock.json")
+    it.inputs.file("${ionicAppDir}/tsconfig.json")
+    it.inputs.dir("${ionicAppDir}/src")
+    it.outputs.dir("${ionicAppDir}/www")
+
+    command = "ionic"
+    args = ["build"]
+    workingDir = file(ionicAppDir)
+}
+
+tasks.register("ionicOpenAndroid", NpxTask) {
+    group("ionic")
+
+    command = "cap"
+    args = [ "open", "android" ]
+    workingDir = file(ionicAppDir)
+}
+
+def ionicCopyAndroidTask = tasks.register("ionicCopyAndroid", NpxTask) {
+    group("ionic")
+
+    command = "ionic"
+    args = [ "capacitor", "copy", "android" ]
+    workingDir = file(ionicAppDir)
+}
+
+def ionicBuildTask = tasks.register("ionicBuild") {
+    group("ionic")
+    dependsOn([ionicBuildWWWTask, ionicCopyAndroidTask])
+}
+
+def addIonicAndroidPlatformTask = tasks.register("addIonicAndroidPlatform", NpxTask) {
+    group("build setup")
+
+    dependsOn([ionicBuildWWWTask, tasks.named("createAndroidSdkDevice")])
+
+    onlyIf { !file("${ionicAppDir}/android").exists() }
+    mustRunAfter startIonicAppTask
+
+    command = "cap"
+    args = [ "add", "android" ]
+    workingDir = file(ionicAppDir)
+}
+
+def addIonicPlatformsTask = tasks.register("addIonicPlatforms") {
+    group("build setup")
+
+    dependsOn(addIonicAndroidPlatformTask)
+}
+
+tasks.register("initIonic") {
+    group("ionic")
+    dependsOn([startIonicAppTask, addIonicPlatformsTask])
+}
+
+tasks.register("ionicServe", NpxTask).configure {
+    group("ionic")
+
+    command = "ionic"
+    args = ["serve"]
+    workingDir = file(ionicAppDir)
+}
+
+
+/*
+tasks.register("cordovaEmulate", NpxTask).configure {
+    group("cordova")
+    command = "cordova"
+    args = createCordovaNpxArgs(["emulate"])
+    workingDir = file(cordovaAppDir)
+    environment = getCordovaEnvironment()
+}
+
+
+ */

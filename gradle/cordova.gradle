@@ -1,13 +1,3 @@
-import org.apache.tools.ant.taskdefs.condition.Os
-
-node {
-    version = nodeVersion
-    download = true
-    workDir = nodePluginWorkDir
-    npmWorkDir = file("${workDir}/.npm")
-}
-
-
 def cordovaVersionFile = file("${node.workDir}/.cordovaVersion")
 
 def installCordovaTask = tasks.register("installCordova", NpmTask) {
@@ -66,7 +56,7 @@ tasks.register("initCordova") {
 }
 
 
-def cordovaBuildTask = tasks.register("cordovaBuild", NpxTask) {
+tasks.register("cordovaBuild", NpxTask) {
     group("cordova")
 
     it.inputs.dir("${cordovaAppDir}/platforms/android/cordova")
@@ -94,6 +84,7 @@ def cordovaBuildTask = tasks.register("cordovaBuild", NpxTask) {
 
 tasks.register("cordovaEmulate", NpxTask).configure {
     group("cordova")
+
     command = "cordova"
     args = createCordovaNpxArgs(["emulate"])
     workingDir = file(cordovaAppDir)
@@ -109,13 +100,9 @@ tasks.register("cordovaServe", NpxTask).configure {
     environment = getCordovaEnvironment()
 }
 
-tasks.named("assemble").configure {
-    dependsOn(cordovaBuildTask)
-}
-
 def getCordovaEnvironment() {
     def environment = [ ANDROID_SDK_ROOT: androidSdkRootDir, ANDROID_HOME: androidSdkHomeDir ]
-    if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+    if (osName == "windows") {
         return environment + [ Path: "${System.env.Path};${gradle.gradleHomeDir}\\bin;${androidSdkRootDir}\\platform-tools;${androidSdkRootDir}\\tools"]
     } else {
         return environment + [ PATH: "${System.env.PATH}:${gradle.gradleHomeDir}/bin:${androidSdkRootDir}/platform-tools:${androidSdkRootDir}/tools"]
