@@ -105,16 +105,3 @@ tasks.register("ionicServe", NpxTask).configure {
     args = ["serve"]
     workingDir = file(ionicAppDir)
 }
-
-
-/*
-tasks.register("cordovaEmulate", NpxTask).configure {
-    group("cordova")
-    command = "cordova"
-    args = createCordovaNpxArgs(["emulate"])
-    workingDir = file(cordovaAppDir)
-    environment = getCordovaEnvironment()
-}
-
-
- */
