@@ -8,3 +8,4 @@ Der Build enthält für die relevanten Kommandozeilen-Befehle der Frameworks ent
 In den gradle.properties lassen sich die Versionen und z.B. der ionic-Projekttyp sowie das Template anpassen.
 
 Hier hat sich lange nichts getan...
+Außer dass ich Youtrack teste
