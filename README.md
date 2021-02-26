@@ -6,3 +6,5 @@ Zunächst initalisiert man ein Projekt über initCordova oder initIonic; anschli
 Der Build enthält für die relevanten Kommandozeilen-Befehle der Frameworks entsprechende Tasks (build, emulate, open, serve).
 
 In den gradle.properties lassen sich die Versionen und z.B. der ionic-Projekttyp sowie das Template anpassen.
+
+Hier hat sich lange nichts getan...
