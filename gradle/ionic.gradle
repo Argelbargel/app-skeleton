@@ -5,7 +5,10 @@ def installIonicTask = tasks.register("installIonic", NpmTask) {
     dependsOn(tasks.named("npmSetup"))
 
     onlyIf { !ionicVersionFile.exists() || ionicVersionFile.text != ionicCliVersion }
-    args = [ 'install', "@ionic/cli", '-g' ]
+
+    def type = gradle.startParameter.projectProperties.getOrDefault("type", ionicAppType)
+    def packages =  (type == "angular") ? [ "@angular/cli"] : []
+    args = [ 'install', '-g' ] + [ "@ionic/cli" ] + packages
 
     doLast {
         ionicVersionFile.text = ionicCliVersion
@@ -98,10 +101,28 @@ tasks.register("initIonic") {
     dependsOn([startIonicAppTask, addIonicPlatformsTask])
 }
 
+def iconicNpmUpdateTask = tasks.register("ionicNpmUpdate", NpxTask).configure {
+    group("ionic")
+
+    command = "npm"
+    args = ["update"]
+    workingDir = file(ionicAppDir)
+}
+
 tasks.register("ionicServe", NpxTask).configure {
     group("ionic")
+    dependsOn iconicNpmUpdateTask
 
     command = "ionic"
     args = ["serve"]
     workingDir = file(ionicAppDir)
 }
+
+tasks.register("ionicCli", NpxTask).configure {
+    group("ionic")
+
+    command = "ionic"
+    args = gradle.startParameter.projectProperties.getOrDefault("args", "").split(/\\s+/)
+    workingDir = file(ionicAppDir)
+}
+
