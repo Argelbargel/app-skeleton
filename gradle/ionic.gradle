@@ -122,7 +122,7 @@ tasks.register("ionicCli", NpxTask).configure {
     group("ionic")
 
     command = "ionic"
-    args = gradle.startParameter.projectProperties.getOrDefault("args", "").split(/\\s+/)
+    args = (gradle.startParameter.projectProperties.getOrDefault("args", "") as String).split(/\\s+/)
     workingDir = file(ionicAppDir)
 }
 
