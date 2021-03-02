@@ -72,7 +72,7 @@ def ionicCopyAndroidTask = tasks.register("ionicCopyAndroid", NpxTask) {
     workingDir = file(ionicAppDir)
 }
 
-def ionicBuildTask = tasks.register("ionicBuild") {
+tasks.register("ionicBuild") {
     group("ionic")
     dependsOn([ionicBuildWWWTask, ionicCopyAndroidTask])
 }
@@ -121,8 +121,14 @@ tasks.register("ionicServe", NpxTask).configure {
 tasks.register("ionicCli", NpxTask).configure {
     group("ionic")
 
+    doFirst {
+        def prop = gradle.startParameter.projectProperties.getOrDefault("args", "");
+        if (prop != null) {
+            args.addAll(prop.split(/\\s+/))
+        }
+    }
+
     command = "ionic"
-    args = (gradle.startParameter.projectProperties.getOrDefault("args", "") as String).split(/\\s+/)
     workingDir = file(ionicAppDir)
 }
 
