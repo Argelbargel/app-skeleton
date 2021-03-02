@@ -25,7 +25,7 @@ def createCordovaAppTask = tasks.register("createCordovaApp", NpxTask) {
 def addCordovaAndroidPlatformTask = tasks.register("addCordovaAndroidPlatform", NpxTask) {
     group("build setup")
 
-    dependsOn(tasks.named("installAndroidSdkPackagesTask"))
+    dependsOn(tasks.named("installAndroidSdkPackages"))
 
     onlyIf { !file("${cordovaAppDir}/platforms/android").exists() }
     mustRunAfter createCordovaAppTask
