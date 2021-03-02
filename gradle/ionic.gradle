@@ -28,7 +28,7 @@ def startIonicAppTask = tasks.register("startIonicApp", NpxTask) {
     command = "ionic"
     args = [ 
         "start", project.name, template, "--${integration}", "--type=${type}", 
-        "--project-id=${file(ionicAppDir).name}", "--package-id=project.group", 
+        "--project-id=${file(ionicAppDir).name}", "--package-id=${project.group}",
         "--no-git", "--confirm" 
     ]
 
