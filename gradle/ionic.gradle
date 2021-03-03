@@ -80,7 +80,7 @@ tasks.register("ionicBuild") {
 def addIonicAndroidPlatformTask = tasks.register("addIonicAndroidPlatform", NpxTask) {
     group("build setup")
 
-    dependsOn([ionicBuildWWWTask, tasks.named("createAndroidSdkDevice")])
+    dependsOn([ionicBuildWWWTask])
 
     onlyIf { !file("${ionicAppDir}/android").exists() }
     mustRunAfter startIonicAppTask
@@ -101,7 +101,7 @@ tasks.register("initIonic") {
     dependsOn([startIonicAppTask, addIonicPlatformsTask])
 }
 
-def iconicNpmUpdateTask = tasks.register("ionicNpmUpdate", NpxTask).configure {
+def ionicNpmUpdateTask = tasks.register("ionicNpmUpdate", NpxTask) {
     group("ionic")
 
     command = "npm"
@@ -111,7 +111,7 @@ def iconicNpmUpdateTask = tasks.register("ionicNpmUpdate", NpxTask).configure {
 
 tasks.register("ionicServe", NpxTask).configure {
     group("ionic")
-    dependsOn iconicNpmUpdateTask
+    dependsOn ionicNpmUpdateTask
 
     command = "ionic"
     args = ["serve"]
